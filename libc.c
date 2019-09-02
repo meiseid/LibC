@@ -10,7 +10,6 @@
 #include <pwd.h>
 #include <dirent.h>
 #include <netdb.h>
-#include <pthread.h>
 #include <sys/param.h>
 #include <sys/socket.h>
 #include <sys/timeb.h>
@@ -25,7 +24,6 @@
 #include <openssl/hmac.h>
 #include <openssl/sha.h>
 #include <openssl/md5.h>
-#include <postgresql/libpq-fe.h>
 #include "libc.h"
 
 #define	LIBC_TIMEOUT	5
@@ -1081,79 +1079,3 @@ extern char* libc_zen2hankaku( const char *src,char *dst )
 	return dst;
 }
 
-extern void* libc_opendatabase( const char *param )
-{
-	char par[2048],*p1,*p2,c; int i,j,n; void *handle = NULL;
-
-	if( strnull(param) ) return NULL; strcpy( par,param );
-
-	for( p1 = par,n = 0; (p2 = strchr( p1,'|' )) != NULL ||
-		(p2 = strchr( p1,'\0' )) != NULL; p1 = p2 + 1 ){
-		n++; if( *p2 == '\0' ) break;
-	}
-	for( p1 = par,i = libc_longtime() % n,j = 0; (p2 = strchr( p1,'|' )) != NULL ||
-		(p2 = strchr( p1,'\0' )) != NULL; p1 = p2 + 1,j++ ){
-		if( i == j ){
-			c = *p2; *p2 = '\0';
-			handle = (void*)PQconnectdb( p1 );
-			if( PQstatus( (PGconn*)handle ) == CONNECTION_BAD ){
-				fprintf( stderr,"connection to %s bad.\n",p1 );
-				PQfinish( (PGconn*)handle );
-				*p2 = c;
-				return NULL;
-			}
-			*p2 = c;
-			return handle; /* COMPLETE */
-		}
-	}
-	return NULL;
-}
-
-extern void libc_closedatabase( void *handle )
-{
-	if( handle ) PQfinish( (PGconn*)handle );
-}
-
-extern int libc_execdatabase( void *handle,const char *sql,void **out )
-{
-	int c,ret = 0; PGresult *r; size_t len;
-
-	if( out ) *out = NULL;
-	if( !handle || strnull(sql) ) return 0;
-	if( strncasecmp( sql,"SELECT",6 ) == 0 ) c = 1; else c = 0;
-	
-	r = PQexec( (PGconn*)handle,sql );
-	if( c ){
-		if( PQresultStatus( r ) != PGRES_TUPLES_OK ){
-			fprintf( stderr,"%s\n",PQresultErrorMessage( r ) );
-			ret = 0;
-		}
-		else if( (c = PQntuples( r )) <= 0 ) ret = 0;
-		else{
-			if( out ) *out = (void*)r;
-			return c; /* SELECT COUNT COMPLETE */
-		}
-	}
-	else{
-		if( PQresultStatus( r ) != PGRES_COMMAND_OK ){
-			fprintf( stderr,"%s\n",PQresultErrorMessage( r ) );
-			ret = 0;
-    	}else ret = 1; /* UPDATE COMPLETE */
-	}
-	PQclear( r );
-	return ret;
-}
-
-extern char* libc_readdatabase( void *result,int row,int col )
-{
-	char *r = NULL;
-
-	if( result ) r = PQgetvalue( (PGresult*)result,row,col );
-	if( r && *r == '\0' ) r = NULL;
-	return r;
-}
-
-extern void libc_freedatabase( void *result )
-{
-	if( result ) PQclear( result );
-}

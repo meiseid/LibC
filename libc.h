@@ -61,12 +61,6 @@ extern char* libc_readcsvline( const char *src,char *dst,size_t len );
 extern char* libc_han2zenkaku( const char *src,char *dst );
 extern char* libc_zen2hankaku( const char *src,char *dst );
 
-extern void* libc_opendatabase( const char *param );
-extern void libc_closedatabase( void *handle );
-extern int libc_execdatabase( void *handle,const char *sql,void **out );
-extern char* libc_readdatabase( void *result,int row,int col );
-extern void libc_freedatabase( void *result );
-
 #ifdef __cplusplus
 }   /* extern "C" */
 #endif
